@@ -20,6 +20,7 @@ package me.ryanhamshire.ExtraHardMode;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -32,6 +33,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDispenseEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
@@ -303,4 +306,51 @@ public class BlockEventHandler implements Listener
 			}				
 		}
 	}
+	
+	//when a piston pushes...
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onBlockPistonExtend (BlockPistonExtendEvent event)
+	{		
+		List<Block> blocks = event.getBlocks();
+		World world = event.getBlock().getWorld();
+		
+		//FEATURE: prevent players from circumventing hardened stone rules by placing ore, then pushing the ore next to stone before breaking it
+		
+		if(!ExtraHardMode.instance.config_superHardStone || !ExtraHardMode.instance.config_enabled_worlds.contains(world)) return;
+				
+		//which blocks are being pushed?
+		for(int i = 0; i < blocks.size(); i++)
+		{
+			//if any are ore or stone, don't push
+			Block block = blocks.get(i);
+			Material material = block.getType();
+			if(material == Material.STONE || material.name().endsWith("_ORE"))
+			{
+				event.setCancelled(true);
+				return;
+			}
+		}		
+	}
+	
+	//when a piston pulls...
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onBlockPistonRetract (BlockPistonRetractEvent event)
+	{
+		//FEATURE: prevent players from circumventing hardened stone rules by placing ore, then pulling the ore next to stone before breaking it
+		
+		//we only care about sticky pistons
+		if(!event.isSticky()) return;
+		
+		Block block = event.getRetractLocation().getBlock();
+		World world = block.getWorld();
+		
+		if(!ExtraHardMode.instance.config_superHardStone || !ExtraHardMode.instance.config_enabled_worlds.contains(world)) return;
+		
+		Material material = block.getType();
+		if(material == Material.STONE || material.name().endsWith("_ORE"))
+		{
+			event.setCancelled(true);
+			return;
+		}
+	} 
 }

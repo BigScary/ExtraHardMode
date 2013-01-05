@@ -135,6 +135,9 @@ public class ExtraHardMode extends JavaPlugin
 	public boolean config_enhancedEnvironmentalDamage;				//whether players take additional damage and/or debuffs from environmental injuries
 	public boolean config_extinguishingFireIgnitesPlayers;			//whether players catch fire when extinguishing a fire up close
 	
+	//explosions disable option, needed to dodge bugs in popular plugins
+	public boolean config_workAroundExplosionsBugs;
+	
 	//adds a server log entry
 	public static void AddLogEntry(String entry)
 	{
@@ -302,6 +305,10 @@ public class ExtraHardMode extends JavaPlugin
 		
 		this.config_playerRespawnFoodLevel = config.getInt("ExtraHardMode.PlayerDeath.RespawnFoodLevel", 15);
 		config.set("ExtraHardMode.PlayerDeath.RespawnFoodLevel", this.config_playerRespawnFoodLevel);
+		
+		this.config_workAroundExplosionsBugs = config.getBoolean("ExtraHardMode.WorkAroundOtherPluginsExplosionBugs", false);
+		config.set("ExtraHardMode.WorkAroundOtherPluginsExplosionBugs", this.config_workAroundExplosionsBugs);
+		
 		
 		//default additional falling blocks
 		this.config_moreFallingBlocks = new ArrayList<Material>();

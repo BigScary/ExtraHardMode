@@ -29,6 +29,7 @@ import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.ItemStack;
 
 class PlayerEventHandler implements Listener 
 {
@@ -106,7 +107,14 @@ class PlayerEventHandler implements Listener
 				event.setCancelled(true);
 				
 				//fill the player's bucket anyway
+				//(beware, player may have a stack of empty buckets, and filled buckets DON'T stack)
+				int extraBuckets = player.getItemInHand().getAmount() - 1; 
 				player.getItemInHand().setType(Material.WATER_BUCKET);
+				player.getItemInHand().setAmount(1);
+				if(extraBuckets > 0)
+				{
+					player.getInventory().addItem(new ItemStack(Material.BUCKET, extraBuckets));
+				}
 				
 				//send the player data so that his client doesn't incorrectly show the water as missing
 				player.sendBlockChange(block.getLocation(), block.getTypeId(), block.getData());
