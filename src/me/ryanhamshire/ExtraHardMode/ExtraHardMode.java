@@ -21,7 +21,6 @@ package me.ryanhamshire.ExtraHardMode;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.logging.Logger;
@@ -35,9 +34,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.Recipe;
-import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -61,6 +57,7 @@ public class ExtraHardMode extends JavaPlugin
 	//general monster rules
 	public int config_moreMonstersMaxY;								//max y value for extra monster spawns
 	public int config_moreMonstersMultiplier;						//what to multiply monster spawns by
+	public int config_monsterSpawnsInLightMaxY;						//max y value for monsters to spawn in the light
 	
 	//monster grinder fix rules
 	public boolean config_inhibitMonsterGrinders;					//whether monster grinders (or "farms") should be inhibited
@@ -71,6 +68,9 @@ public class ExtraHardMode extends JavaPlugin
 	public boolean config_limitedBlockPlacement;					//whether players may place blocks directly underneath themselves
 	public boolean config_betterTNT;								//whether TNT should be more powerful and plentiful
 	public ArrayList<Material> config_moreFallingBlocks;			//which materials beyond sand and gravel should be subject to gravity
+	public boolean config_limitedTorchPlacement;					//whether players are limited to placing torches against specific materials
+	public boolean config_rainBreaksTorches;						//whether rain should break torches
+	public int config_brokenNetherrackCatchesFirePercent;			//percent chance for broken netherrack to start a fire
 	
 	//zombie rules
 	public boolean config_zombiesDebilitatePlayers;					//whether zombies apply a debuff to players on hit
@@ -84,6 +84,7 @@ public class ExtraHardMode extends JavaPlugin
 	//creeper rules
 	public int config_chargedCreeperSpawnPercent;					//percentage of creepers which will spawn charged
 	public boolean config_chargedCreepersExplodeOnHit;				//whether charged creepers explode when damaged
+	public int config_creepersDropTNTOnDeathPercent;				//percentage of creepers which spawn activated TNT on death
 	
 	//pig zombie rules
 	public boolean config_alwaysAngryPigZombies;					//whether pig zombies are always hostile
@@ -110,6 +111,15 @@ public class ExtraHardMode extends JavaPlugin
 	
 	//enderman rules
 	public boolean config_improvedEndermanTeleportation;			//whether endermen may teleport players
+	
+	//witch rules
+	public int config_bonusWitchSpawnPercent;						//percentage of surface zombies which spawn as witches
+	
+	//ender dragon rules
+	public boolean config_respawnEnderDragon;						//whether the ender dragon respawns
+	public boolean config_enderDragonDropsEgg;						//whether it drops an egg when slain
+	public boolean config_enderDragonDropsVillagerEggs;				//whether it drops a pair of villager eggs when slain
+	public boolean config_enderDragonAdditionalAttacks;				//whether the dragon spits fireballs and summons minions
 	
 	//melons and wheat
 	public boolean config_seedReduction;							//whether melon and grass seeds are more rare
@@ -213,11 +223,23 @@ public class ExtraHardMode extends JavaPlugin
 		this.config_limitedBlockPlacement = config.getBoolean("ExtraHardMode.LimitedBlockPlacement", true);
 		config.set("ExtraHardMode.LimitedBlockPlacement", this.config_limitedBlockPlacement);
 		
+		this.config_limitedTorchPlacement = config.getBoolean("ExtraHardMode.LimitedTorchPlacement", true);
+		config.set("ExtraHardMode.LimitedTorchPlacement", this.config_limitedTorchPlacement);
+		
+		this.config_rainBreaksTorches = config.getBoolean("ExtraHardMode.RainBreaksTorches", true);
+		config.set("ExtraHardMode.RainBreaksTorches", this.config_rainBreaksTorches);		
+		
+		this.config_brokenNetherrackCatchesFirePercent = config.getInt("ExtraHardMode.NetherrackCatchesFirePercent", 20);
+		config.set("ExtraHardMode.NetherrackCatchesFirePercent", this.config_brokenNetherrackCatchesFirePercent);		
+		
 		this.config_moreMonstersMaxY = config.getInt("ExtraHardMode.MoreMonsters.MaxYCoord", 55);
 		config.set("ExtraHardMode.MoreMonsters.MaxYCoord", this.config_moreMonstersMaxY);
 		
 		this.config_moreMonstersMultiplier = config.getInt("ExtraHardMode.MoreMonsters.Multiplier", 2);
-		config.set("ExtraHardMode.MoreMonsters.Multiplier", this.config_moreMonstersMultiplier);		
+		config.set("ExtraHardMode.MoreMonsters.Multiplier", this.config_moreMonstersMultiplier);
+		
+		this.config_monsterSpawnsInLightMaxY = config.getInt("ExtraHardMode.MonstersSpawnInLightMaxY", 50);
+		config.set("ExtraHardMode.MonstersSpawnInLightMaxY", this.config_monsterSpawnsInLightMaxY);		
 		
 		this.config_zombiesDebilitatePlayers = config.getBoolean("ExtraHardMode.Zombies.SlowPlayers", true);
 		config.set("ExtraHardMode.Zombies.SlowPlayers", this.config_zombiesDebilitatePlayers);
@@ -240,8 +262,14 @@ public class ExtraHardMode extends JavaPlugin
 		this.config_spidersDropWebOnDeath = config.getBoolean("ExtraHardMode.Spiders.DropWebOnDeath", true);
 		config.set("ExtraHardMode.Spiders.DropWebOnDeath", this.config_spidersDropWebOnDeath);
 		
+		this.config_bonusWitchSpawnPercent = config.getInt("ExtraHardMode.Witches.BonusSpawnPercent", 5);
+		config.set("ExtraHardMode.Witches.BonusSpawnPercent", this.config_bonusWitchSpawnPercent);
+		
 		this.config_chargedCreeperSpawnPercent = config.getInt("ExtraHardMode.Creepers.ChargedCreeperSpawnPercent", 20);
 		config.set("ExtraHardMode.Creepers.ChargedCreeperSpawnPercent", this.config_chargedCreeperSpawnPercent);
+		
+		this.config_creepersDropTNTOnDeathPercent = config.getInt("ExtraHardMode.Creepers.DropTNTOnDeathPercent", 10);
+		config.set("ExtraHardMode.Creepers.DropTNTOnDeathPercent", this.config_creepersDropTNTOnDeathPercent);
 		
 		this.config_chargedCreepersExplodeOnHit = config.getBoolean("ExtraHardMode.Creepers.ChargedCreepersExplodeOnDamage", true);
 		config.set("ExtraHardMode.Creepers.ChargedCreepersExplodeOnDamage", this.config_chargedCreepersExplodeOnHit);
@@ -281,6 +309,18 @@ public class ExtraHardMode extends JavaPlugin
 		
 		this.config_improvedEndermanTeleportation = config.getBoolean("ExtraHardMode.Endermen.MayTeleportPlayers", true);
 		config.set("ExtraHardMode.Endermen.MayTeleportPlayers", this.config_improvedEndermanTeleportation);
+		
+		this.config_respawnEnderDragon = config.getBoolean("ExtraHardMode.EnderDragon.Respawns", true);
+		config.set("ExtraHardMode.EnderDragon.Respawns", this.config_respawnEnderDragon);		
+		
+		this.config_enderDragonDropsEgg = config.getBoolean("ExtraHardMode.EnderDragon.DropsEgg", true);
+		config.set("ExtraHardMode.EnderDragon.DropsEgg", this.config_enderDragonDropsEgg);
+		
+		this.config_enderDragonDropsVillagerEggs = config.getBoolean("ExtraHardMode.EnderDragon.DropsVillagerEggs", true);
+		config.set("ExtraHardMode.EnderDragon.DropsVillagerEggs", this.config_enderDragonDropsVillagerEggs);
+		
+		this.config_enderDragonAdditionalAttacks = config.getBoolean("ExtraHardMode.EnderDragon.HarderBattle", true);
+		config.set("ExtraHardMode.EnderDragon.HarderBattle", this.config_enderDragonAdditionalAttacks);		
 		
 		this.config_seedReduction = config.getBoolean("ExtraHardMode.Farming.FewerSeeds", true);
 		config.set("ExtraHardMode.Farming.FewerSeeds", this.config_seedReduction);
@@ -379,40 +419,9 @@ public class ExtraHardMode extends JavaPlugin
 		EntityEventHandler entityEventHandler = new EntityEventHandler();
 		pluginManager.registerEvents(entityEventHandler, this);
 		
-		//FEATURE: triple result from TNT recipe
-		if(this.config_betterTNT)
-		{
-			Iterator<Recipe> recipeIterator = this.getServer().recipeIterator();
-			while(recipeIterator.hasNext())
-			{
-				Recipe recipe = recipeIterator.next();
-				if(recipe.getResult().getType() == Material.TNT && recipe instanceof ShapedRecipe && recipe.getResult().getAmount() == 1)
-				{
-					recipeIterator.remove();
-				}
-			}
-			
-			ShapedRecipe newRecipe = new ShapedRecipe(new ItemStack(Material.TNT, 3));
-			newRecipe.shape("GSG", "SGS", "GSG");
-			newRecipe.setIngredient('S', Material.SAND);
-			newRecipe.setIngredient('G', Material.SULPHUR);
-			
-			this.getServer().addRecipe(newRecipe);
-		}
-		
-		//FEATURE: can't get melon seeds from melon slices
-		if(this.config_seedReduction)
-		{
-			Iterator<Recipe> recipeIterator = this.getServer().recipeIterator();
-			while(recipeIterator.hasNext())
-			{
-				Recipe recipe = recipeIterator.next();
-				if(recipe.getResult().getType() == Material.MELON_SEEDS)
-				{
-					recipeIterator.remove();
-				}
-			}			
-		}		
+		//FEATURE: monsters spawn in the light under a configurable Y level
+		MoreMonstersTask task = new MoreMonstersTask();
+		this.getServer().getScheduler().scheduleSyncRepeatingTask(this, task, 1200L, 1200L);  //every 60 seconds
 	}
 	
 	//handles slash commands
@@ -475,5 +484,22 @@ public class ExtraHardMode extends JavaPlugin
 	static boolean random(int percentChance)
 	{
 		return randomNumberGenerator.nextInt(101) < percentChance;
+	}
+	
+	boolean allowGrow(Block block, byte newDataValue)
+	{
+		World world = block.getWorld();
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || !ExtraHardMode.instance.config_seedReduction) return true;
+		
+		Material material = block.getType();				
+		if(material == Material.CROPS || material == Material.MELON_STEM || material == Material.CARROT || material == Material.PUMPKIN_STEM || material == Material.POTATO)
+		{
+			if(newDataValue > (byte)6 && ExtraHardMode.random(25))
+			{
+				return false;
+			}			
+		}
+		
+		return true;
 	}
 }

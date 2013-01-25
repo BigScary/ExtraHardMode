@@ -19,6 +19,8 @@
 package me.ryanhamshire.ExtraHardMode;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 import org.bukkit.Chunk;
@@ -34,19 +36,26 @@ import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Blaze;
 import org.bukkit.entity.Creature;
 import org.bukkit.entity.Creeper;
+import org.bukkit.entity.EnderDragon;
 import org.bukkit.entity.Enderman;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Ghast;
+import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.MagmaCube;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.PigZombie;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Sheep;
 import org.bukkit.entity.Skeleton;
 import org.bukkit.entity.Spider;
+import org.bukkit.entity.ThrownPotion;
+import org.bukkit.entity.Witch;
 import org.bukkit.entity.Wither;
 import org.bukkit.entity.Zombie;
 
@@ -62,8 +71,12 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.EntityTeleportEvent;
+import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.entity.PotionSplashEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.entity.SheepRegrowWoolEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.ItemStack;
@@ -75,10 +88,6 @@ import org.bukkit.util.Vector;
 //handles events related to entities
 class EntityEventHandler implements Listener
 {
-	public EntityEventHandler()
-	{
-	}
-	
 	//when there's an explosion...
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onExplosion(EntityExplodeEvent event)
@@ -95,8 +104,91 @@ class EntityEventHandler implements Listener
 			
 			if(entity != null && entity.getType() == EntityType.PRIMED_TNT && !ExtraHardMode.instance.config_workAroundExplosionsBugs)
 			{
-				event.setCancelled(true);
-				entity.getWorld().createExplosion(entity.getLocation(), 8F);
+				//create more explosions nearby
+				long serverTime = world.getFullTime();
+				int random1 = (int)(serverTime + entity.getLocation().getBlockZ()) % 8;
+				int random2 = (int)(serverTime + entity.getLocation().getBlockX()) % 8;
+				
+				Location [] locations = new Location [4];
+				
+				locations[0] = entity.getLocation().add(random1, 1, random2);
+				locations[1] = entity.getLocation().add(-random2, 0, random1 / 2);
+				locations[2] = entity.getLocation().add(-random1 / 2, -1, -random2);
+				locations[3] = entity.getLocation().add(random1 / 2, 0, -random2 / 2);
+				
+				for(int i = 0; i < locations.length; i++)
+				{
+					CreateExplosionTask task = new CreateExplosionTask(locations[i], 6F);
+					ExtraHardMode.instance.getServer().getScheduler().scheduleSyncDelayedTask(ExtraHardMode.instance, task, 3L * (i + 1));
+				}
+			}
+		}
+		
+		//FEATURE: ender dragon fireballs may summon minions instead of setting fire
+		if(entity != null && entity.getType() == EntityType.FIREBALL)
+		{
+			Fireball fireball = (Fireball)entity;
+			Entity spawnedMonster = null;
+			if(fireball.getShooter().getType() == EntityType.ENDER_DRAGON)
+			{
+				int random = ExtraHardMode.randomNumberGenerator.nextInt(100);
+				if(random < 40)
+				{				
+					for(int x1 = -2; x1 <= 2; x1++)
+					{
+						for(int z1 = -2; z1 <= 2; z1++)
+						{
+							for(int y1 = 2; y1 >= -2; y1--)
+							{
+								Block block = fireball.getLocation().add(x1, y1, z1).getBlock();
+								Material underType = block.getRelative(BlockFace.DOWN).getType();
+								if(block.getType() == Material.AIR && underType != Material.AIR && underType != Material.FIRE)
+								{
+									block.setType(Material.FIRE);
+								}
+							}
+						}
+					}
+					
+					Location location = fireball.getLocation().add(0, 1, 0);
+					for(int i = 0; i < 10; i++)
+					{
+						FallingBlock fire = world.spawnFallingBlock(location, Material.FIRE, (byte)0);
+						Vector velocity = Vector.getRandom();
+						if(velocity.getY() < 0)
+						{
+							velocity.setY(velocity.getY() * -1);
+						}
+						if(ExtraHardMode.randomNumberGenerator.nextBoolean())
+						{
+							velocity.setZ(velocity.getZ() * -1);
+						}
+						if(ExtraHardMode.randomNumberGenerator.nextBoolean())
+						{
+							velocity.setX(velocity.getX() * -1);
+						}						
+						fire.setVelocity(velocity);						
+					}
+				}				
+				else if(random < 50)
+				{				
+					spawnedMonster = entity.getWorld().spawnEntity(entity.getLocation(), EntityType.BLAZE);					
+				}
+				else if(random < 80)
+				{
+					spawnedMonster = (Zombie)entity.getWorld().spawnEntity(entity.getLocation(), EntityType.ZOMBIE);
+					Zombie zombie = (Zombie)spawnedMonster; 
+					zombie.setVillager(true);
+				}
+				else
+				{
+					spawnedMonster = entity.getWorld().spawnEntity(entity.getLocation(), EntityType.ENDERMAN);
+				}
+				
+				if(spawnedMonster != null)
+				{
+					EntityEventHandler.markLootLess((LivingEntity)spawnedMonster);
+				}
 			}
 		}
 		
@@ -121,8 +213,12 @@ class EntityEventHandler implements Listener
 		//FEATURE: more powerful ghast fireballs
 		if(entity != null && entity instanceof Fireball && !ExtraHardMode.instance.config_workAroundExplosionsBugs)
 		{
-			event.setCancelled(true);
-			entity.getWorld().createExplosion(entity.getLocation(), 4F, true);  //same as vanilla TNT, plus fire
+			Fireball fireball = (Fireball)entity;
+			if(fireball.getShooter() != null && fireball.getShooter().getType() == EntityType.GHAST)
+			{
+				event.setCancelled(true);
+				entity.getWorld().createExplosion(entity.getLocation(), 4F, true);  //same as vanilla TNT, plus fire
+			}
 		}
 		
 		//FEATURE: bigger creeper explosions (for more-frequent cave-ins)
@@ -131,6 +227,115 @@ class EntityEventHandler implements Listener
 			event.setCancelled(true);
 			entity.getWorld().createExplosion(entity.getLocation(), 3F, false);  //same as vanilla TNT
 		}
+	}
+	
+	//when a splash potion breaks...
+	@EventHandler(priority = EventPriority.LOW)
+	public void onPotionSplash(PotionSplashEvent event)
+	{
+		ThrownPotion potion = event.getPotion();
+		Location location = potion.getLocation();
+		World world = location.getWorld();
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world)) return;
+		
+		//FEATURE: enhanced witches.  they throw wolf spawner and teleport potions as well as poison potions
+		LivingEntity shooter = potion.getShooter();
+		if(shooter.getType() == EntityType.WITCH)
+		{
+			Witch witch = (Witch)shooter;
+			
+			int random = ExtraHardMode.randomNumberGenerator.nextInt(100);
+			
+			boolean makeExplosion = false;
+			
+			//30% summon zombie
+			if(random < 30)
+			{
+				event.setCancelled(true);
+				
+				Entity [] entities = location.getChunk().getEntities();
+				boolean zombieNearby = false;
+				for(int j = 0; j < entities.length; j++)
+				{
+					if(entities[j].getType() == EntityType.ZOMBIE)
+					{
+						Zombie zombie = (Zombie)entities[j];
+						if(zombie.isVillager() && zombie.isBaby())
+						{
+							zombieNearby = true;
+							break;
+						}							
+					}
+				}
+					
+				if(!zombieNearby)
+				{
+					Zombie zombie = (Zombie)location.getWorld().spawnEntity(location, EntityType.ZOMBIE);
+					zombie.setVillager(true);
+					zombie.setBaby(true);
+					if(zombie.getTarget() != null)
+					{
+						zombie.setTarget(witch.getTarget());
+					}						
+					
+					markLootLess(zombie);
+				}
+				else
+				{
+					makeExplosion = true;
+				}
+			}
+			
+			//30% teleport
+			else if (random < 60)
+			{				
+				event.setCancelled(true);
+				witch.teleport(location);
+			}
+			
+			//30% explosion
+			else if(random < 90)
+			{
+				event.setCancelled(true);
+				makeExplosion = true;
+			}
+				
+			//otherwise poison potion (selective target)
+			else
+			{
+				Collection<LivingEntity> targets = event.getAffectedEntities();
+				Iterator<LivingEntity> iterator = targets.iterator();
+				while(iterator.hasNext())
+				{
+					LivingEntity target = iterator.next();
+					if(target.getType() != EntityType.PLAYER)
+					{
+						event.setIntensity(target, 0);
+					}							
+				}
+			}
+			
+			//if explosive potion, direct damage to players in the area
+			if(makeExplosion)
+			{				
+				//explosion just for show, no damage
+				location.getWorld().createExplosion(location, 0F);
+				
+				Collection<LivingEntity> targets = event.getAffectedEntities();
+				Iterator<LivingEntity> iterator = targets.iterator();
+				while(iterator.hasNext())
+				{
+					LivingEntity target = iterator.next();
+					if(target.getType() == EntityType.PLAYER)
+					{
+						target.damage(3);
+					}							
+				}
+			}
+		}
+		
+		
+		
 	}
 	
 	//when a creature spawns...
@@ -160,7 +365,7 @@ class EntityEventHandler implements Listener
 			}
 			
 			//otherwise, consider environment to stop monsters from spawning in non-natural places
-			else if(reason == SpawnReason.NATURAL || reason == SpawnReason.VILLAGE_INVASION)
+			else if((reason == SpawnReason.NATURAL || reason == SpawnReason.VILLAGE_INVASION) && entity instanceof Monster)
 			{
 				Environment environment = location.getWorld().getEnvironment();
 				
@@ -172,7 +377,10 @@ class EntityEventHandler implements Listener
 						underBlockType != Material.SAND && 
 						underBlockType != Material.GRAVEL && 
 						underBlockType != Material.MOSSY_COBBLESTONE &&
-						underBlockType != Material.COBBLESTONE)
+						underBlockType != Material.OBSIDIAN &&
+						underBlockType != Material.COBBLESTONE &&
+						underBlockType != Material.AIR &&  //bats
+						underBlockType != Material.WATER)  //squid
 					{
 							event.setCancelled(true);
 							return;
@@ -209,6 +417,17 @@ class EntityEventHandler implements Listener
 			{
 				((Creeper)entity).setPowered(true);
 			}				
+		}
+		
+		//FEATURE: more witches above ground (on grass)
+		if(entityType == EntityType.ZOMBIE && world.getEnvironment() == Environment.NORMAL && entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getType() == Material.GRASS)
+		{
+			if(ExtraHardMode.random(ExtraHardMode.instance.config_bonusWitchSpawnPercent))
+			{
+				event.setCancelled(true);
+				entityType = EntityType.WITCH;
+				world.spawnEntity(location, entityType);
+			}
 		}
 		
 		//FEATURE: more spiders underground
@@ -362,15 +581,22 @@ class EntityEventHandler implements Listener
 			}
 		}
 		
+		//FEATURE: silverfish drop cobblestone
+		if(entity.getType() == EntityType.SILVERFISH)
+		{
+			event.getDrops().add(new ItemStack(Material.COBBLESTONE));
+		}
+		
 		//FEATURE: zombies may reanimate if not on fire when they die
 		if(ExtraHardMode.instance.config_zombiesReanimatePercent > 0)
 		{
 			if(entity.getType() == EntityType.ZOMBIE)
 			{
-				if(entity.getFireTicks() < 1 && ExtraHardMode.random(ExtraHardMode.instance.config_zombiesReanimatePercent))
+				Zombie zombie = (Zombie)entity;
+				
+				if(!zombie.isVillager() && entity.getFireTicks() < 1 && ExtraHardMode.random(ExtraHardMode.instance.config_zombiesReanimatePercent))
 				{
 					Player playerTarget = null;
-					Zombie zombie = (Zombie)entity;
 					Entity target = zombie.getTarget();
 					if(target instanceof Player)
 					{
@@ -381,6 +607,15 @@ class EntityEventHandler implements Listener
 					int respawnSeconds = ExtraHardMode.randomNumberGenerator.nextInt(6) + 3;  //3-8 seconds
 					ExtraHardMode.instance.getServer().getScheduler().scheduleSyncDelayedTask(ExtraHardMode.instance, task, 20L * respawnSeconds);  ///20L ~ 1 second
 				}
+			}
+		}
+		
+		//FEATURE: creepers may drop activated TNT when they die
+		if(ExtraHardMode.instance.config_creepersDropTNTOnDeathPercent > 0)
+		{
+			if(entity.getType() == EntityType.CREEPER && ExtraHardMode.random(ExtraHardMode.instance.config_creepersDropTNTOnDeathPercent))
+			{
+				world.spawnEntity(entity.getLocation(), EntityType.PRIMED_TNT);
 			}
 		}
 		
@@ -395,19 +630,40 @@ class EntityEventHandler implements Listener
 		}
 		
 		//FEATURE: nether blazes drop extra loot (glowstone and gunpowder)
-		if(ExtraHardMode.instance.config_blazesDropBonusLoot && world.getEnvironment() == Environment.NETHER && entity instanceof Blaze)
+		if(ExtraHardMode.instance.config_blazesDropBonusLoot && entity instanceof Blaze)
 		{
-			//50% chance of each
-			if(ExtraHardMode.randomNumberGenerator.nextInt(2) == 0)
-			{
-				event.getDrops().add(new ItemStack(Material.SULPHUR, 2));
+			if(world.getEnvironment() == Environment.NETHER)
+			{			
+				//50% chance of each
+				if(ExtraHardMode.randomNumberGenerator.nextInt(2) == 0)
+				{
+					event.getDrops().add(new ItemStack(Material.SULPHUR, 2));
+				}
+				else
+				{
+					event.getDrops().add(new ItemStack(Material.GLOWSTONE_DUST, 2));
+				}
 			}
-			else
+			else  //no drops in the normal world (restricting blaze rods to the nether)
 			{
-				event.getDrops().add(new ItemStack(Material.GLOWSTONE_DUST, 2));
+				event.getDrops().clear();
 			}
 		}
 		
+		//FEATURE: ender dragon drops prizes on death
+		if(entity instanceof EnderDragon)
+		{
+			if(ExtraHardMode.instance.config_enderDragonDropsVillagerEggs)
+			{
+				ItemStack itemStack = new ItemStack(Material.MONSTER_EGG, 2, (short)120);
+				world.dropItemNaturally(entity.getLocation().add(10, 0, 0), itemStack);
+			}
+			
+			if(ExtraHardMode.instance.config_enderDragonDropsEgg)
+			{
+				world.dropItemNaturally(entity.getLocation().add(10, 0, 0), new ItemStack(Material.DRAGON_EGG));
+			}
+		}		
 		
 		//FEATURE: monsters which take environmental damage or spawn from spawners don't drop loot and exp (monster grinder inhibitor)
 		if(ExtraHardMode.instance.config_inhibitMonsterGrinders && entity.getType() != EntityType.PLAYER && entity.getType() != EntityType.SQUID)
@@ -494,9 +750,18 @@ class EntityEventHandler implements Listener
 						}
 						
 						//monster doesn't have room above to hurdle a foot level block, unable to advance toward killer
-						else if(middleLocation.getBlock().getRelative(BlockFace.UP).getType() != Material.AIR && middleLocation.getBlock().getRelative(BlockFace.DOWN).getType() != Material.AIR)
+						else
 						{
-							noLoot = true;
+							Block bottom = middleLocation.getBlock().getRelative(BlockFace.DOWN);
+							Block top = middleLocation.getBlock().getRelative(BlockFace.UP);
+							if(top.getType() != Material.AIR && bottom.getType() != Material.AIR || 
+									bottom.getType() == Material.FENCE || 
+									bottom.getType() == Material.FENCE_GATE || 
+									bottom.getType() == Material.COBBLE_WALL ||
+									bottom.getType() == Material.NETHER_FENCE)
+							{
+								noLoot = true;
+							}
 						}
 					}
 				}
@@ -645,6 +910,50 @@ class EntityEventHandler implements Listener
 		if(event instanceof EntityDamageByEntityEvent)
 		{
 			subEvent = (EntityDamageByEntityEvent)event;
+		}
+		
+		//FEATURE: don't allow explosions to destroy items on the ground
+		//REASONS: charged creepers explode twice, enhanced TNT explodes 5 times
+		if(entityType == EntityType.DROPPED_ITEM)
+		{
+			event.setCancelled(true);
+		}				
+		
+		if(subEvent != null && entity.getType() == EntityType.ENDER_DRAGON && ExtraHardMode.instance.config_enderDragonAdditionalAttacks)
+		{
+			Player damager = null;
+			if(subEvent.getDamager() instanceof Player)
+			{
+				damager = (Player) subEvent.getDamager();
+			}
+			else if(subEvent.getDamager() instanceof Projectile)
+			{
+				Projectile projectile = (Projectile)subEvent.getDamager();
+				if(projectile.getShooter() != null && projectile.getShooter() instanceof Player)
+				{
+					damager = (Player)projectile.getShooter();
+				}
+			}
+			
+			if(damager != null)
+			{
+				for(int i = 0; i < 20; i++)
+				{
+					DragonAttackTask task = new DragonAttackTask(entity, damager);
+					ExtraHardMode.instance.getServer().getScheduler().scheduleSyncDelayedTask(ExtraHardMode.instance, task, 20L * (ExtraHardMode.randomNumberGenerator.nextInt(60)));
+				}
+				
+				Chunk chunk = damager.getLocation().getChunk();
+				Entity [] entities = chunk.getEntities();
+				for(int i = 0; i < entities.length; i++)
+				{
+					if(entities[i].getType() == EntityType.ENDERMAN)
+					{
+						Enderman enderman = (Enderman)entities[i];
+						enderman.setTarget(damager);
+					}
+				}
+			}
 		}
 		
 		//FEATURE: zombies can apply a debilitating effects
@@ -921,7 +1230,7 @@ class EntityEventHandler implements Listener
 		}
 	}
 	
-	//when an entity targets something (as in to attack it)
+	//when an entity targets something (as in to attack it)...
 	@EventHandler
 	public void onEntityTarget(EntityTargetEvent event)
 	{
@@ -933,6 +1242,63 @@ class EntityEventHandler implements Listener
 		if(entity instanceof Monster)
 		{
 			this.clearWebbing(entity);
+		}
+		
+		//FEATURE: monsters don't target the ender dragon
+		if(event.getTarget() != null && event.getTarget() instanceof EnderDragon)
+		{
+			event.setCancelled(true);
+		}
+	}
+	
+	//when a player crafts something...
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onItemCrafted(CraftItemEvent event)
+	{
+		HumanEntity entity = event.getWhoClicked();
+		if(entity == null || !(entity instanceof Player)) return;
+		
+		Player player = (Player)entity;
+		World world = player.getWorld();
+		
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || player.hasPermission("extrahardmode.bypass")) return;
+		
+		//FEATURE: no crafting melon seeds
+		if(ExtraHardMode.instance.config_seedReduction && event.getRecipe().getResult().getType() == Material.MELON_SEEDS)
+		{
+			event.setCancelled(true);
+			ExtraHardMode.sendMessage(player, TextMode.Instr, Messages.NoCraftingMelonSeeds);
+			return;
+		}
+		
+		//FEATURE: extra TNT from the TNT recipe
+		if(ExtraHardMode.instance.config_betterTNT && event.getRecipe().getResult().getType() == Material.TNT)
+		{
+			player.getInventory().addItem(new ItemStack(Material.TNT, 2));
+		}
+	}
+	
+	//when a player teleports BUG HERE: last i checked, this event didn't fire from bukkit.  so this code is incomplete (i stopped working on it)
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onPlayerTeleport(PlayerTeleportEvent event)
+	{
+		Player player = event.getPlayer();
+		World world = player.getWorld();
+		if(event.getCause() != TeleportCause.END_PORTAL || !ExtraHardMode.instance.config_enabled_worlds.contains(world) || player.hasPermission("extrahardmode.bypass") || world.getEnvironment() == Environment.THE_END) return;
+	}	
+	
+	//when an item spawns
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onItemSpawn(ItemSpawnEvent event)
+	{
+		//FEATURE: fountain effect from dragon fireball explosions sometimes causes fire to drop as an item.  this is the fix for that.		
+		Item item = event.getEntity();
+		World world = item.getWorld();
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || world.getEnvironment() != Environment.THE_END) return;
+		
+		if(item.getItemStack().getType() == Material.FIRE)
+		{
+			event.setCancelled(true);
 		}
 	}
 	
@@ -968,7 +1334,7 @@ class EntityEventHandler implements Listener
 			}
 			else
 			{
-				return (totalDamage > entity.getMaxHealth());
+				return false;  //wither is exempt.  he can't be farmed because creating him requires combining not-farmable components
 			}
 		}
 		

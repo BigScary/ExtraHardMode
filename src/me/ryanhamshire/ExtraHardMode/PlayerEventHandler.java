@@ -17,9 +17,16 @@
  */
 
 package me.ryanhamshire.ExtraHardMode;
+import java.util.List;
+
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.World.Environment;
 import org.bukkit.block.Block;
+import org.bukkit.entity.EnderDragon;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -27,6 +34,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
@@ -74,6 +82,19 @@ class PlayerEventHandler implements Listener
 				{
 					event.setCancelled(true);
 				}
+			}
+		}
+		
+		//FEATURE: seed reduction.  some plants die even when a player uses bonemeal.
+		if(ExtraHardMode.instance.config_seedReduction && action == Action.RIGHT_CLICK_BLOCK)
+		{
+			Block block = event.getClickedBlock();
+			
+			Material materialInHand = player.getItemInHand().getType();
+			if(materialInHand == Material.INK_SACK && !ExtraHardMode.instance.allowGrow(block, Byte.MAX_VALUE))
+			{
+				event.setCancelled(true);
+				block.setType(Material.LONG_GRASS);  //dead shrub
 			}
 		}
 		
@@ -142,5 +163,50 @@ class PlayerEventHandler implements Listener
 				ExtraHardMode.instance.getServer().getScheduler().scheduleSyncDelayedTask(ExtraHardMode.instance, task, 15L);
 			}
 		}
+	}
+	
+	//when a player changes worlds...
+	@EventHandler(priority = EventPriority.MONITOR)
+	void onPlayerChangeWorld(PlayerChangedWorldEvent event)
+	{
+		World world = event.getFrom();
+		
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world)) return;
+		
+		//FEATURE: respawn the ender dragon when the last player leaves the end
+		if(world.getEnvironment() != Environment.THE_END) return;
+		
+		if(world.getPlayers().size() > 0) return;
+		
+		//look for an ender dragon
+		List<Entity> entities = world.getEntities();
+		EnderDragon enderDragon = null;
+		for(int i = 0; i < entities.size(); i++)
+		{
+			Entity entity = entities.get(i);
+			if(entity instanceof EnderDragon)
+			{
+				enderDragon = (EnderDragon)entities.get(i);
+				break;
+			}
+			
+			//clean up any summoned minions
+			if(entity.getType() == EntityType.ZOMBIE || entity.getType() == EntityType.BLAZE)
+			{
+				entity.remove();
+			}
+		}
+		
+		//if he's there, full health
+		if(enderDragon != null)
+		{
+			enderDragon.setHealth(enderDragon.getMaxHealth());
+		}
+		
+		//otherwise, spawn one
+		else
+		{
+			world.spawnEntity(new Location(world, 0, world.getMaxHeight() - 1, 0), EntityType.ENDER_DRAGON);
+		}		
 	}
 }

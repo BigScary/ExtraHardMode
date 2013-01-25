@@ -18,7 +18,22 @@
 
 package me.ryanhamshire.ExtraHardMode;
 
-public enum Messages
-{
-	NoTorchesHere, StoneMiningHelp, NoPlacingOreAgainstStone, RealisticBuilding, LimitedTorchPlacements, NoCraftingMelonSeeds	
+import org.bukkit.Location;
+
+public class CreateExplosionTask implements Runnable {
+
+	private Location location;
+	private float power;
+	
+	public CreateExplosionTask(Location location, float power)
+	{
+		this.location = location;
+		this.power = power;
+	}
+
+	@Override
+	public void run()
+	{
+		this.location.getWorld().createExplosion(this.location, this.power);
+	}
 }

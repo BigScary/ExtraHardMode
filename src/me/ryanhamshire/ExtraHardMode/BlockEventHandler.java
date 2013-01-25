@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
@@ -33,10 +34,13 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDispenseEvent;
+import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.weather.WeatherChangeEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.material.Torch;
 import org.bukkit.util.Vector;
 
 //event handlers related to blocks
@@ -44,7 +48,7 @@ public class BlockEventHandler implements Listener
 {
 	//constructor
 	public BlockEventHandler()
-	{		
+	{
 	}
 	
 	//when a player breaks a block...
@@ -175,6 +179,17 @@ public class BlockEventHandler implements Listener
 				block.getDrops().add(new ItemStack(Material.NETHER_STALK));
 			}
 		}
+		
+		//FEATURE: breaking netherrack may start a fire
+		if(ExtraHardMode.instance.config_brokenNetherrackCatchesFirePercent > 0 && block.getType() == Material.NETHERRACK)
+		{
+			Block underBlock = block.getRelative(BlockFace.DOWN);
+			if(underBlock.getType() == Material.NETHERRACK && ExtraHardMode.random(ExtraHardMode.instance.config_brokenNetherrackCatchesFirePercent))
+			{
+				breakEvent.setCancelled(true);
+				block.setType(Material.FIRE);
+			}
+		}
 	}
 	
 	//when a player places a block...
@@ -241,15 +256,17 @@ public class BlockEventHandler implements Listener
 				block.getZ() == player.getLocation().getBlockZ() &&
 				block.getY() <  player.getLocation().getBlockY() )
 			{
+				ExtraHardMode.sendMessage(player, TextMode.Instr, Messages.RealisticBuilding);
 				placeEvent.setCancelled(true);
 				return;
 			}
 			
 			Block underBlock = player.getLocation().getBlock().getRelative(BlockFace.DOWN);
 			
-			//if over standing directly over lava, prevent placement
+			//if standing directly over lava, prevent placement
 			if(underBlock.getType() == Material.LAVA || underBlock.getType() == Material.STATIONARY_LAVA)
 			{
+				ExtraHardMode.sendMessage(player, TextMode.Instr, Messages.RealisticBuilding);
 				placeEvent.setCancelled(true);
 				return;
 			}
@@ -262,9 +279,27 @@ public class BlockEventHandler implements Listener
 				//if over lava or more air, prevent placement
 				if(underBlock.getType() == Material.AIR || underBlock.getType() == Material.LAVA || underBlock.getType() == Material.STATIONARY_LAVA)
 				{
+					ExtraHardMode.sendMessage(player, TextMode.Instr, Messages.RealisticBuilding);
 					placeEvent.setCancelled(true);
 					return;
 				}
+			}
+		}
+		
+		//FEATURE: players can't attach torches to common "soft" blocks
+		if(ExtraHardMode.instance.config_limitedTorchPlacement && block.getType() == Material.TORCH)
+		{
+			Torch torch = new Torch(Material.TORCH, block.getData());
+			Material attachmentMaterial = block.getRelative(torch.getAttachedFace()).getType();
+			
+			if(	attachmentMaterial == Material.DIRT ||
+				attachmentMaterial == Material.GRASS ||
+				attachmentMaterial == Material.LONG_GRASS ||
+				attachmentMaterial == Material.SAND)
+			{
+				placeEvent.setCancelled(true);
+				ExtraHardMode.sendMessage(player, TextMode.Instr, Messages.LimitedTorchPlacements);
+				return;				
 			}
 		}
 	}
@@ -351,6 +386,43 @@ public class BlockEventHandler implements Listener
 		{
 			event.setCancelled(true);
 			return;
+		}
+	} 
+	
+	//when the weather changes...
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+	public void onWeatherChange (WeatherChangeEvent event)
+	{
+		//FEATURE: rainfall breaks exposed torches (exposed to the sky)
+		World world = event.getWorld();
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || !ExtraHardMode.instance.config_rainBreaksTorches) return;
+		
+		if(!event.toWeatherState()) return;  //if not raining
+		
+		//plan to remove torches chunk by chunk gradually throughout the rain period
+		Chunk [] chunks = world.getLoadedChunks();
+		if(chunks.length > 0)
+		{
+			int startOffset = ExtraHardMode.randomNumberGenerator.nextInt(chunks.length);
+			for(int i = 0; i < chunks.length; i++)
+			{
+				Chunk chunk = chunks[(startOffset + i) % chunks.length];
+				
+				RemoveExposedTorchesTask task = new RemoveExposedTorchesTask(chunk);
+				ExtraHardMode.instance.getServer().getScheduler().scheduleSyncDelayedTask(ExtraHardMode.instance, task, i * 20L);
+			}
+		}
+	} 
+	
+	//when a block grows...
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onBlockGrow (BlockGrowEvent event)
+	{
+		//FEATURE: fewer seeds = shrinking crops.  when a plant grows to its full size, it may be replaced by a dead shrub
+		if(!ExtraHardMode.instance.allowGrow(event.getBlock(), event.getNewState().getData().getData()))
+		{
+			event.setCancelled(true);
+			event.getBlock().setType(Material.LONG_GRASS); //dead shrub
 		}
 	} 
 }

@@ -58,6 +58,9 @@ public class DataStore
 		this.addDefault(defaults, Messages.NoTorchesHere, "There's not enough air flow down here for permanent flames.  Use another method to light your way.", null);
 		this.addDefault(defaults, Messages.StoneMiningHelp, "You'll need an iron or diamond pickaxe to break stone.  Try exploring natural formations for exposed ore like coal, which softens stone around it when broken.", null);
 		this.addDefault(defaults, Messages.NoPlacingOreAgainstStone, "Sorry, you can't place ore next to stone.", null);
+		this.addDefault(defaults, Messages.RealisticBuilding, "You can't build while in the air.", null);
+		this.addDefault(defaults, Messages.LimitedTorchPlacements, "It's too soft there to fasten a torch.", null);
+		this.addDefault(defaults, Messages.NoCraftingMelonSeeds, "This melon appears to be seedless!", null);		
 		
 		//load the config file
 		FileConfiguration config = YamlConfiguration.loadConfiguration(new File(messagesFilePath));
