@@ -24,6 +24,7 @@ import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
 
+//removes torches and/or covers exposed crops
 public class RemoveExposedTorchesTask implements Runnable
 {
 	private Chunk chunk;
@@ -46,16 +47,39 @@ public class RemoveExposedTorchesTask implements Runnable
 				for(int y = chunk.getWorld().getMaxHeight() - 1; y > 0; y--)
 				{
 					Block block = chunk.getBlock(x, y, z);
+					Material blockType = block.getType();
 					
-					if(block.getType() != Material.AIR)
+					if(blockType != Material.AIR)
 					{
-						if(block.getType() == Material.TORCH)
+						if(ExtraHardMode.instance.config_rainBreaksTorches && blockType == Material.TORCH)
 						{
 							Biome biome = block.getBiome();
 							if(biome == Biome.DESERT || biome == Biome.DESERT_HILLS) break;
 							
 							block.setType(Material.AIR);
 							chunk.getWorld().dropItemNaturally(block.getLocation(), new ItemStack(Material.TORCH, 1));
+						}
+						
+						else if(ExtraHardMode.instance.config_weakFoodCrops && (blockType == Material.CROPS || blockType == Material.MELON_STEM || blockType == Material.CARROT || blockType == Material.PUMPKIN_STEM || blockType == Material.POTATO || blockType == Material.RED_ROSE || blockType == Material.YELLOW_FLOWER || blockType == Material.LONG_GRASS))
+						{
+							Biome biome = block.getBiome();
+							if( biome == Biome.FROZEN_OCEAN ||
+								biome == Biome.FROZEN_RIVER ||
+								biome == Biome.ICE_MOUNTAINS ||
+								biome == Biome.ICE_PLAINS ||
+								biome == Biome.TAIGA ||
+								biome == Biome.TAIGA_HILLS)
+							{
+								block.setType(Material.SNOW);
+								if(ExtraHardMode.randomNumberGenerator.nextBoolean())
+								{
+									block.setData((byte)1);
+								}
+								else
+								{
+									block.setData((byte)2);
+								}
+							}
 						}
 						else
 						{

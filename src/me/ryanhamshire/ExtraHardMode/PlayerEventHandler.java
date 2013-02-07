@@ -86,12 +86,12 @@ class PlayerEventHandler implements Listener
 		}
 		
 		//FEATURE: seed reduction.  some plants die even when a player uses bonemeal.
-		if(ExtraHardMode.instance.config_seedReduction && action == Action.RIGHT_CLICK_BLOCK)
+		if(ExtraHardMode.instance.config_weakFoodCrops && action == Action.RIGHT_CLICK_BLOCK)
 		{
 			Block block = event.getClickedBlock();
 			
 			Material materialInHand = player.getItemInHand().getType();
-			if(materialInHand == Material.INK_SACK && !ExtraHardMode.instance.allowGrow(block, Byte.MAX_VALUE))
+			if(materialInHand == Material.INK_SACK && ExtraHardMode.instance.plantDies(block, Byte.MAX_VALUE))
 			{
 				event.setCancelled(true);
 				block.setType(Material.LONG_GRASS);  //dead shrub
@@ -165,6 +165,26 @@ class PlayerEventHandler implements Listener
 		}
 	}
 	
+	//when a player dumps a bucket...
+	//block use of buckets within other players' claims
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onPlayerBucketEmpty (PlayerBucketEmptyEvent bucketEvent)
+	{
+		Player player = bucketEvent.getPlayer();
+		World world = player.getWorld();
+		
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || player.hasPermission("extrahardmode.bypass")) return;
+		
+		//FEATURE: very limited building in the end
+		//players are allowed to break only end stone, and only to create a stair up to ground level
+		if(ExtraHardMode.instance.config_enderDragonNoBuilding && world.getEnvironment() == Environment.THE_END)
+		{
+			bucketEvent.setCancelled(true);
+			ExtraHardMode.sendMessage(player, TextMode.Err, Messages.LimitedEndBuilding);
+			return;
+		}
+	}
+	
 	//when a player changes worlds...
 	@EventHandler(priority = EventPriority.MONITOR)
 	void onPlayerChangeWorld(PlayerChangedWorldEvent event)
@@ -191,7 +211,7 @@ class PlayerEventHandler implements Listener
 			}
 			
 			//clean up any summoned minions
-			if(entity.getType() == EntityType.ZOMBIE || entity.getType() == EntityType.BLAZE)
+			if(entity.getType() == EntityType.ZOMBIE || entity.getType() == EntityType.BLAZE || entity.getType() == EntityType.VILLAGER)
 			{
 				entity.remove();
 			}

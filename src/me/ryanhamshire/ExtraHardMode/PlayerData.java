@@ -1,6 +1,6 @@
 /*
     ExtraHardMode Server Plugin for Minecraft
-    Copyright (C) 2012 Ryan Hamshire
+    Copyright (C) 2013 Ryan Hamshire
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,7 +18,9 @@
 
 package me.ryanhamshire.ExtraHardMode;
 
-public enum Messages
+//holds all of GriefPrevention's player-tied data
+public class PlayerData 
 {
-	NoTorchesHere, StoneMiningHelp, NoPlacingOreAgainstStone, RealisticBuilding, LimitedTorchPlacements, NoCraftingMelonSeeds, LimitedEndBuilding, DragonFountainTip	
+	public String lastMessageSent = "";
+	public int messageRepetitionCount = 0;	
 }

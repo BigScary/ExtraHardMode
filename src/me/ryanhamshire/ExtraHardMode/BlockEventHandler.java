@@ -18,11 +18,10 @@
 
 package me.ryanhamshire.ExtraHardMode;
 
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 
 import org.bukkit.Chunk;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
@@ -61,14 +60,41 @@ public class BlockEventHandler implements Listener
 		
 		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || player.hasPermission("extrahardmode.bypass")) return;
 		
+		//FEATURE: very limited building in the end
+		//players are allowed to break only end stone, and only to create a stair up to ground level
+		if(ExtraHardMode.instance.config_enderDragonNoBuilding && world.getEnvironment() == Environment.THE_END)
+		{
+			if(block.getType() != Material.ENDER_STONE)
+			{
+				breakEvent.setCancelled(true);
+				ExtraHardMode.sendMessage(player, TextMode.Err, Messages.LimitedEndBuilding);
+				return;
+			}
+			else
+			{
+				int absoluteDistanceFromBlock = Math.abs(block.getX() - player.getLocation().getBlockX());
+				int zdistance = Math.abs(block.getZ() - player.getLocation().getBlockZ());
+				if(zdistance > absoluteDistanceFromBlock)
+				{
+					absoluteDistanceFromBlock = zdistance;
+				}
+				
+				if(block.getY() < player.getLocation().getBlockY() + absoluteDistanceFromBlock)
+				{
+					breakEvent.setCancelled(true);
+					ExtraHardMode.sendMessage(player, TextMode.Err, Messages.LimitedEndBuilding);
+					return;
+				}				
+			}
+		}
+		
 		//FEATURE: stone breaks tools much more quickly
 		if(ExtraHardMode.instance.config_superHardStone)
 		{			
 			ItemStack inHandStack = player.getItemInHand();			
 			
 			//if breaking stone with an item in hand and the player does NOT have the bypass permission
-			if(	(block.getType() == Material.STONE || block.getType() == Material.ENDER_STONE) && 
-				inHandStack != null)
+			if(	block.getType() == Material.STONE && inHandStack != null)
 			{				
 				//if not using an iron or diamond pickaxe, don't allow breakage and explain to the player
 				Material tool = inHandStack.getType();
@@ -120,56 +146,6 @@ public class BlockEventHandler implements Listener
 		//FEATURE: more falling blocks
 		ExtraHardMode.physicsCheck(block, 0, true);
 		
-		//FEATURE: breaking a melon stem can result in 0-2 seeds returned
-		if(ExtraHardMode.instance.config_seedReduction)
-		{
-			if(block.getType() == Material.MELON_STEM)
-			{
-				Collection<ItemStack> drops = block.getDrops();
-				drops.clear();
-				
-				int randomNumber = ExtraHardMode.randomNumberGenerator.nextInt(100);
-				
-				if(randomNumber >= 30)
-				{
-					drops.add(new ItemStack(Material.MELON_SEEDS));
-				}
-				
-				if(randomNumber >= 70)
-				{
-					drops.add(new ItemStack(Material.MELON_SEEDS));
-				}				
-			}
-		}
-		
-		//FEATURE: breaking a wheat can result in 0-2 seeds returned
-		if(ExtraHardMode.instance.config_seedReduction)
-		{
-			if(block.getType() == Material.CROPS)
-			{
-				Collection<ItemStack> drops = block.getDrops();
-				
-				//remove any seeds
-				Iterator<ItemStack> iterator = drops.iterator();
-				while(iterator.hasNext())
-				{
-					ItemStack itemStack = iterator.next();
-					if(itemStack.getType() == Material.SEEDS)
-					{
-						iterator.remove();
-					}
-				}				
-				
-				//add back in the right amount
-				int randomNumber = ExtraHardMode.randomNumberGenerator.nextInt(100);
-				
-				if(randomNumber >= 50)
-				{
-					//drops.add(new ItemStack(Material.SEEDS));
-				}
-			}
-		}
-		
 		//FEATURE: no nether wart farming (always drops exactly 1 nether wart when broken)
 		if(ExtraHardMode.instance.config_noFarmingNetherWart)
 		{
@@ -200,7 +176,16 @@ public class BlockEventHandler implements Listener
 		Block block = placeEvent.getBlock();
 		World world = block.getWorld();
 		
-		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || player.hasPermission("extrahardmode.bypass")) return;
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || player.hasPermission("extrahardmode.bypass") || player.getGameMode() == GameMode.CREATIVE) return;
+		
+		//FEATURE: very limited building in the end
+		//players are allowed to break only end stone, and only to create a stair up to ground level
+		if(ExtraHardMode.instance.config_enderDragonNoBuilding && world.getEnvironment() == Environment.THE_END)
+		{
+			placeEvent.setCancelled(true);
+			ExtraHardMode.sendMessage(player, TextMode.Err, Messages.LimitedEndBuilding);
+			return;
+		}
 		
 		//FIX: prevent players from placing ore as an exploit to work around the hardened stone rule
 		if(ExtraHardMode.instance.config_superHardStone && block.getType().name().endsWith("_ORE"))
@@ -395,11 +380,11 @@ public class BlockEventHandler implements Listener
 	{
 		//FEATURE: rainfall breaks exposed torches (exposed to the sky)
 		World world = event.getWorld();
-		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || !ExtraHardMode.instance.config_rainBreaksTorches) return;
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world)) return;
 		
 		if(!event.toWeatherState()) return;  //if not raining
 		
-		//plan to remove torches chunk by chunk gradually throughout the rain period
+		//plan to remove torches and cover crops chunk by chunk gradually throughout the rain period
 		Chunk [] chunks = world.getLoadedChunks();
 		if(chunks.length > 0)
 		{
@@ -419,7 +404,7 @@ public class BlockEventHandler implements Listener
 	public void onBlockGrow (BlockGrowEvent event)
 	{
 		//FEATURE: fewer seeds = shrinking crops.  when a plant grows to its full size, it may be replaced by a dead shrub
-		if(!ExtraHardMode.instance.allowGrow(event.getBlock(), event.getNewState().getData().getData()))
+		if(ExtraHardMode.instance.plantDies(event.getBlock(), event.getNewState().getData().getData()))
 		{
 			event.setCancelled(true);
 			event.getBlock().setType(Material.LONG_GRASS); //dead shrub

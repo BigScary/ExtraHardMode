@@ -69,7 +69,7 @@ public class DragonAttackTask implements Runnable {
 				offsetLocation.getY() - dragonLocation.getY(),
 				offsetLocation.getZ() - dragonLocation.getZ());
 				
-		Fireball fireball = (Fireball)world.spawnEntity(dragonLocation, EntityType.FIREBALL);
+		Fireball fireball = (Fireball)world.spawnEntity(dragonLocation.subtract(0, 1, 0), EntityType.FIREBALL);
 		fireball.setShooter((EnderDragon)this.dragon);		
 		fireball.setDirection(vector);
 	}
