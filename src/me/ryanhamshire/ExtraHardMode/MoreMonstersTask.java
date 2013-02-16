@@ -28,6 +28,7 @@ import org.bukkit.World;
 import org.bukkit.World.Environment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.PigZombie;
 import org.bukkit.entity.Player;
 
 public class MoreMonstersTask implements Runnable {
@@ -112,7 +113,8 @@ public class MoreMonstersTask implements Runnable {
 							
 							if(random < 80)
 							{
-								world.spawnEntity(location, EntityType.PIG_ZOMBIE);
+								PigZombie zombie = (PigZombie)world.spawnEntity(location, EntityType.PIG_ZOMBIE);
+								zombie.setAnger(Integer.MAX_VALUE);
 							}
 							else
 							{

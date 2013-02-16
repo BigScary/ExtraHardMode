@@ -54,6 +54,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Sheep;
 import org.bukkit.entity.Skeleton;
+import org.bukkit.entity.Skeleton.SkeletonType;
 import org.bukkit.entity.Spider;
 import org.bukkit.entity.ThrownPotion;
 import org.bukkit.entity.Witch;
@@ -704,6 +705,23 @@ class EntityEventHandler implements Listener
 				noLoot = true;				
 			}
 			
+			else if(entity instanceof Skeleton)
+			{
+				Skeleton skeleton = (Skeleton)entity;
+				if(skeleton.getSkeletonType() == SkeletonType.WITHER && skeleton.getEyeLocation().getBlock().getType() != Material.AIR)
+				{
+					noLoot = true;
+				}
+			}
+			
+			else if(entity instanceof Enderman)
+			{
+				if(entity.getEyeLocation().getBlock().getType() != Material.AIR)
+				{
+					noLoot = true;
+				}
+			}
+			
 			else
 			{
 				//also no loot for monsters which die standing in water
@@ -1139,7 +1157,7 @@ class EntityEventHandler implements Listener
 						underBlock = underBlock.getRelative(BlockFace.DOWN);
 					
 					block = underBlock.getRelative(BlockFace.UP); 
-					if(block.getType() == Material.AIR && underBlock.getType() != Material.AIR && !underBlock.isLiquid())
+					if(block.getType() == Material.AIR && underBlock.getType() != Material.AIR && !underBlock.isLiquid() && underBlock.getY() > 0)
 					{
 						block.setType(Material.FIRE);
 					}

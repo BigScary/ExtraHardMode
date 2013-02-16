@@ -25,6 +25,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
+import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
@@ -38,6 +39,7 @@ import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
+import org.bukkit.event.world.StructureGrowEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.material.Torch;
 import org.bukkit.util.Vector;
@@ -140,6 +142,26 @@ public class BlockEventHandler implements Listener
 				
 				adjacentBlock = block.getRelative(BlockFace.SOUTH);
 				if(adjacentBlock.getType() == Material.STONE) adjacentBlock.setType(Material.COBBLESTONE);
+			}
+		}
+		
+		//FEATURE: trees chop more naturally
+		if(block.getType() == Material.LOG && ExtraHardMode.instance.config_betterTreeChopping)
+		{
+			Block rootBlock = block;
+			while(rootBlock.getType() == Material.LOG)
+			{
+				rootBlock = rootBlock.getRelative(BlockFace.DOWN);
+			}
+			
+			if(rootBlock.getType() == Material.DIRT || rootBlock.getType() == Material.GRASS)
+			{
+				Block aboveLog = block.getRelative(BlockFace.UP);
+				while(aboveLog.getType() == Material.LOG)
+				{
+					ExtraHardMode.applyPhysics(aboveLog);
+					aboveLog = aboveLog.getRelative(BlockFace.UP);
+				}
 			}
 		}
 		
@@ -410,4 +432,23 @@ public class BlockEventHandler implements Listener
 			event.getBlock().setType(Material.LONG_GRASS); //dead shrub
 		}
 	} 
+	
+	//when a tree or mushroom grows...
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+	public void onStructureGrow(StructureGrowEvent event)
+	{
+		World world = event.getWorld();
+		Block block = event.getLocation().getBlock();
+		if(!ExtraHardMode.instance.config_enabled_worlds.contains(world) || (event.getPlayer() != null && event.getPlayer().hasPermission("extrahardmode.bypass"))) return;
+		
+		//FEATURE: no big plant growth in deserts
+		if(ExtraHardMode.instance.config_weakFoodCrops)
+		{
+			Biome biome = block.getBiome();
+			if(biome == Biome.DESERT || biome == Biome.DESERT_HILLS)
+			{
+				event.setCancelled(true);							
+			}
+		}
+	}
 }

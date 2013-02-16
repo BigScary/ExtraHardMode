@@ -20,5 +20,5 @@ package me.ryanhamshire.ExtraHardMode;
 
 public enum Messages
 {
-	NoTorchesHere, StoneMiningHelp, NoPlacingOreAgainstStone, RealisticBuilding, LimitedTorchPlacements, NoCraftingMelonSeeds, LimitedEndBuilding, DragonFountainTip	
+	NoTorchesHere, StoneMiningHelp, NoPlacingOreAgainstStone, RealisticBuilding, LimitedTorchPlacements, NoCraftingMelonSeeds, LimitedEndBuilding, DragonFountainTip, NoSwimmingInArmor	
 }

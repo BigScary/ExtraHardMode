@@ -21,6 +21,7 @@ package me.ryanhamshire.ExtraHardMode;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Random;
 import java.util.logging.Logger;
@@ -140,6 +141,7 @@ public class ExtraHardMode extends JavaPlugin
 	
 	//water
 	public boolean config_dontMoveWaterSourceBlocks;				//whether players may move water source blocks
+	public boolean config_noSwimmingInArmor;						//whether players may swim while wearing armor
 	
 	//player death
 	public int config_playerRespawnHealth;							//how much health after respawn
@@ -149,6 +151,9 @@ public class ExtraHardMode extends JavaPlugin
 	//player damage
 	public boolean config_enhancedEnvironmentalDamage;				//whether players take additional damage and/or debuffs from environmental injuries
 	public boolean config_extinguishingFireIgnitesPlayers;			//whether players catch fire when extinguishing a fire up close
+	
+	//tree felling
+	public boolean config_betterTreeChopping;						//whether tree logs respect gravity
 	
 	//explosions disable option, needed to dodge bugs in popular plugins
 	public boolean config_workAroundExplosionsBugs;
@@ -274,7 +279,7 @@ public class ExtraHardMode extends JavaPlugin
 		this.config_chargedCreeperSpawnPercent = config.getInt("ExtraHardMode.Creepers.ChargedCreeperSpawnPercent", 20);
 		outConfig.set("ExtraHardMode.Creepers.ChargedCreeperSpawnPercent", this.config_chargedCreeperSpawnPercent);
 		
-		this.config_creepersDropTNTOnDeathPercent = config.getInt("ExtraHardMode.Creepers.DropTNTOnDeathPercent", 10);
+		this.config_creepersDropTNTOnDeathPercent = config.getInt("ExtraHardMode.Creepers.DropTNTOnDeathPercent", 20);
 		outConfig.set("ExtraHardMode.Creepers.DropTNTOnDeathPercent", this.config_creepersDropTNTOnDeathPercent);
 		
 		this.config_chargedCreepersExplodeOnHit = config.getBoolean("ExtraHardMode.Creepers.ChargedCreepersExplodeOnDamage", true);
@@ -352,6 +357,9 @@ public class ExtraHardMode extends JavaPlugin
 		this.config_dontMoveWaterSourceBlocks = config.getBoolean("ExtraHardMode.Farming.BucketsDontMoveWaterSources", true);
 		outConfig.set("ExtraHardMode.Farming.BucketsDontMoveWaterSources", this.config_dontMoveWaterSourceBlocks);
 		
+		this.config_noSwimmingInArmor = config.getBoolean("ExtraHardMode.NoSwimmingWhenHeavy", true);
+		outConfig.set("ExtraHardMode.NoSwimmingWhenHeavy", this.config_noSwimmingInArmor);		
+		
 		this.config_playerDeathItemStacksForfeitPercent = config.getInt("ExtraHardMode.PlayerDeath.ItemStacksForfeitPercent", 10);
 		outConfig.set("ExtraHardMode.PlayerDeath.ItemStacksForfeitPercent", this.config_playerDeathItemStacksForfeitPercent);
 		
@@ -360,6 +368,9 @@ public class ExtraHardMode extends JavaPlugin
 		
 		this.config_playerRespawnFoodLevel = config.getInt("ExtraHardMode.PlayerDeath.RespawnFoodLevel", 15);
 		outConfig.set("ExtraHardMode.PlayerDeath.RespawnFoodLevel", this.config_playerRespawnFoodLevel);
+		
+		this.config_betterTreeChopping = config.getBoolean("ExtraHardMode.BetterTreeFelling", true);
+		outConfig.set("ExtraHardMode.BetterTreeFelling", this.config_betterTreeChopping);		
 		
 		this.config_workAroundExplosionsBugs = config.getBoolean("ExtraHardMode.WorkAroundOtherPluginsExplosionBugs", false);
 		outConfig.set("ExtraHardMode.WorkAroundOtherPluginsExplosionBugs", this.config_workAroundExplosionsBugs);
@@ -469,15 +480,12 @@ public class ExtraHardMode extends JavaPlugin
 		{
 			//FEATURE: don't spam messages
 			PlayerData playerData = ExtraHardMode.instance.dataStore.getPlayerData(player.getName());
-			if(!message.equals(playerData.lastMessageSent) || playerData.messageRepetitionCount > 15)
+			long now = Calendar.getInstance().getTimeInMillis();
+			if(!message.equals(playerData.lastMessageSent) || now - playerData.lastMessageTimestamp > 30000)
 			{
 				player.sendMessage(color + message);
 				playerData.lastMessageSent = message;
-				playerData.messageRepetitionCount = 0;
-			}
-			else
-			{
-				playerData.messageRepetitionCount++;
+				playerData.lastMessageTimestamp = now;
 			}
 		}
 	}	

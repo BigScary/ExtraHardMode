@@ -49,7 +49,7 @@ public class DragonAttackPatternTask implements Runnable {
 		{
 			//announce the combat result
 			this.playersFightingDragon.remove(this.player);
-			if(ExtraHardMode.instance.config_enderDragonCombatAnnouncements)
+			if(ExtraHardMode.instance.config_enderDragonCombatAnnouncements && !this.player.isDead())
 			{
 				ExtraHardMode.instance.getServer().broadcastMessage(this.player.getName() + " has been defeated by the dragon!");
 			}
@@ -68,7 +68,7 @@ public class DragonAttackPatternTask implements Runnable {
 			return;
 		}
 		
-		for(int i = 0; i < 5; i++)
+		for(int i = 0; i < 3; i++)
 		{
 			DragonAttackTask task = new DragonAttackTask(this.dragon, this.player);
 			ExtraHardMode.instance.getServer().getScheduler().scheduleSyncDelayedTask(ExtraHardMode.instance, task, 20L * i + (ExtraHardMode.randomNumberGenerator.nextInt(20)));

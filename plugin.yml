@@ -2,7 +2,7 @@ name: ExtraHardMode
 main: me.ryanhamshire.ExtraHardMode.ExtraHardMode
 softdepend: [Multiverse-Core, My Worlds, MystCraft, Transporter]
 dev-url: http://dev.bukkit.org/server-mods/fun-hard-mode
-version: 2.8
+version: 3.0.1
 commands:
 permissions:
     extrahardmode.bypass:

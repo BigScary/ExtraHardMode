@@ -51,7 +51,7 @@ public class DataStore
 		this.loadMessages();		
 	}
 	
-	private void loadMessages() 
+	private void loadMessages()
 	{
 		Messages [] messageIDs = Messages.values();
 		this.messages = new String[Messages.values().length];
@@ -66,7 +66,8 @@ public class DataStore
 		this.addDefault(defaults, Messages.LimitedTorchPlacements, "It's too soft there to fasten a torch.", null);
 		this.addDefault(defaults, Messages.NoCraftingMelonSeeds, "That appears to be seedless!", null);
 		this.addDefault(defaults, Messages.LimitedEndBuilding, "Sorry, building here is very limited.  You may only break blocks to reach ground level.", null);
-		this.addDefault(defaults, Messages.DragonFountainTip, "Congratulations on defeating the dragon!  If you can't reach the fountain to jump into the portal, throw an ender pearl at it.", null);		
+		this.addDefault(defaults, Messages.DragonFountainTip, "Congratulations on defeating the dragon!  If you can't reach the fountain to jump into the portal, throw an ender pearl at it.", null);
+		this.addDefault(defaults, Messages.NoSwimmingInArmor, "You're carrying too much weight to swim!", null);
 		
 		//load the config file
 		FileConfiguration config = YamlConfiguration.loadConfiguration(new File(messagesFilePath));

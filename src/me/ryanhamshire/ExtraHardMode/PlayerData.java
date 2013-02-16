@@ -18,9 +18,10 @@
 
 package me.ryanhamshire.ExtraHardMode;
 
-//holds all of GriefPrevention's player-tied data
+//holds all of ExtraHardMode's player-tied data
 public class PlayerData 
 {
 	public String lastMessageSent = "";
-	public int messageRepetitionCount = 0;	
+	public long lastMessageTimestamp = 0;
+	public Boolean cachedWeightStatus = null;
 }
